@@ -1,5 +1,6 @@
 import $ivy.`org.scalaj::scalaj-http:2.4.1`, scalaj.http.{ Http, HttpResponse }
 import $ivy.`com.lihaoyi::ujson:0.6.6`, ujson._
+import java.io.{File, PrintWriter}
 
 val channel = if (sys.env.contains("SLACK_CHANNEL_ID")) sys.env("SLACK_CHANNEL_ID") else ""	
 val token = if (sys.env.contains("SLACK_TOKEN")) sys.env("SLACK_TOKEN") else ""	
@@ -12,7 +13,7 @@ def deleteMessage(ts: String) = {
     .postData(payload)
     .asString
   println(response.body);
-  Thread.sleep(300)    
+  Thread.sleep(800)    
 }
 
 def listBotMessages: List[String] = {
@@ -22,6 +23,11 @@ def listBotMessages: List[String] = {
      .param("token", token)
      .param("count","1000")
      .asString
+
+  val pw = new PrintWriter(new File(s"channel.${channel}.json" ))
+  pw.write(response.body)
+  pw.close
+
   val json = ujson.read(response.body)
   val result: List[String] = json("messages").arr.map(message => {
      val ts:String = message("ts").str
