@@ -27,17 +27,21 @@ def listBotMessages: List[String] = {
   val pw = new PrintWriter(new File(s"channel.${channel}.json" ))
   pw.write(response.body)
   pw.close
-
+  val lastWeek = (new java.util.Date).getTime / 1000 -  7*24*60*60
   val json = ujson.read(response.body)
   val result: List[String] = json("messages").arr.map(message => {
      val ts:String = message("ts").str
-     val fields = message.obj.keys.toSet
-     if (fields.contains("type") && fields.contains("subtype")) {
-       val typ:String = message("type").str
-       val subtype:String = message("subtype").str
-       if (typ == "message" && subtype == "bot_message") ts else ""
-     } else ""
-  }).toList.filter(!_.isEmpty)
+     val msgUnixTime = ts.split('.')(0).toLong
+     if (msgUnixTime > lastWeek) ""
+     else {
+       val fields = message.obj.keys.toSet
+       if (fields.contains("type") && fields.contains("subtype")) {
+         val typ:String = message("type").str
+         val subtype:String = message("subtype").str
+         if (typ == "message" && subtype == "bot_message") ts else ""
+       } else ""
+     }
+  }).toList.filter(!_.isEmpty).reverse
   result
 }
 
@@ -45,8 +49,11 @@ if (channel.isEmpty) println("Missing SLACK_CHANNEL_ID")
 if (token.isEmpty) println("Missing SLACK_TOKEN")
 
 if (!channel.isEmpty && !token.isEmpty) {
-  listBotMessages.foreach(ts => {
-    println(ts)
+  var messages = listBotMessages
+  println(s"${messages.size} to be deleted")
+
+  messages.zipWithIndex.foreach({ case (ts,index) => {
+    println(index + ". " + ts)
     deleteMessage(ts)
-  })
+  }})
 }
