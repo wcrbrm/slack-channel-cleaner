@@ -4,6 +4,7 @@ import java.io.{File, PrintWriter}
 
 val channel = if (sys.env.contains("SLACK_CHANNEL_ID")) sys.env("SLACK_CHANNEL_ID") else ""	
 val token = if (sys.env.contains("SLACK_TOKEN")) sys.env("SLACK_TOKEN") else ""	
+val msgLimit = 1000
 
 def deleteMessage(ts: String) = {
   val payload = Js.Obj("channel" -> channel, "ts" -> ts, "as_user" -> true).toString
@@ -21,13 +22,14 @@ def listBotMessages: List[String] = {
      .param("channel", channel)
      .param("oldest", "143000000")
      .param("token", token)
-     .param("count","1000")
+     .param("count", msgLimit.toString)
      .asString
 
-  val pw = new PrintWriter(new File(s"channel.${channel}.json" ))
-  pw.write(response.body)
-  pw.close
-  val lastWeek = (new java.util.Date).getTime / 1000 -  7*24*60*60
+  // val pw = new PrintWriter(new File(s"channel.${channel}.json" ))
+  // pw.write(response.body)
+  // pw.close
+
+  val lastWeek = (new java.util.Date).getTime / 1000 -  3*24*60*60
   val json = ujson.read(response.body)
   val result: List[String] = json("messages").arr.map(message => {
      val ts:String = message("ts").str
@@ -49,11 +51,15 @@ if (channel.isEmpty) println("Missing SLACK_CHANNEL_ID")
 if (token.isEmpty) println("Missing SLACK_TOKEN")
 
 if (!channel.isEmpty && !token.isEmpty) {
-  var messages = listBotMessages
-  println(s"${messages.size} to be deleted")
+  var haveMore = false
+  do {
+    val messages = listBotMessages
+    haveMore = (messages.size == msgLimit)
 
-  messages.zipWithIndex.foreach({ case (ts,index) => {
-    println(index + ". " + ts)
-    deleteMessage(ts)
-  }})
+    println(s"${messages.size} to be deleted")
+    messages.zipWithIndex.foreach({ case (ts,index) => {
+      println(index + ". " + ts)
+      deleteMessage(ts)
+    }})
+  } while (haveMore)
 }
